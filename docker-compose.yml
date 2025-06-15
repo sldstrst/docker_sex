@@ -1,3 +1,4 @@
+# Сервис базы данных PostgreSQL
 services:
   postgres:
     image: postgres:15
@@ -10,13 +11,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # Основное приложение, содержащее два сервиса
   app:
     build:
-      context: .
-      dockerfile: Dockerfile  # ← Явное указание
+      context: ./go_service
+      dockerfile: Dockerfile
     ports:
-      - "8080:8080"
-      - "8081:8081"
+      - "8080:8080"  # Порт greeting-service
+      - "8081:8081"  # Порт counter-service
     depends_on:
       - postgres
     environment:
@@ -26,5 +28,6 @@ services:
       DB_PASSWORD: password
       DB_NAME: counter_db
 
+# Том для хранения данных PostgreSQL
 volumes:
   postgres_data:
