@@ -3,12 +3,14 @@ FROM golang:1.24-alpine as builder
 
 WORKDIR /app
 
-# Копируем go.mod для кэширования зависимостей
-COPY go.mod ./
+# Копируем go.mod и go.sum для кэширования зависимостей
+COPY go.mod go.sum ./
 RUN go mod tidy
 
 # Копируем исходники greeting-service
 COPY . .
+
+WORKDIR /app
 
 # Собираем greeting-service
 RUN go build -o greeting-service .
