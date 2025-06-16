@@ -1,0 +1,70 @@
+# Используем официальный образ Golang на базе Alpine для сборки counter-service
+# FROM golang:1.24-alpine as builder
+# - golang:1.24-alpine: официальный образ Go версии 1.24 на базе Alpine Linux (легковесный дистрибутив)
+# - as builder: многоступенчатая сборка, этот этап называется "builder"
+# Документация: https://hub.docker.com/_/golang
+
+# WORKDIR /app
+# Устанавливаем рабочую директорию внутри контейнера на /app
+# Все последующие команды будут выполняться относительно этой директории
+
+# Копируем go.mod и go.sum для кэширования зависимостей
+COPY go.mod ./
+# Копируем файл go.mod из текущей директории проекта (go_service/counter) в контейнер
+# go.mod описывает зависимости Go-модуля
+# Документация: https://golang.org/ref/mod#go-mod-file
+
+RUN go mod tidy
+# Выполняем команду go mod tidy для загрузки и очистки зависимостей
+# Это ускоряет сборку, так как зависимости кэшируются
+# Документация: https://golang.org/cmd/go/#hdr-Add_missing_and_remove_unused_modules
+
+# Копируем исходники counter-service
+COPY . .
+# Копируем все файлы из контекста сборки (go_service/counter) в контейнер /app
+# Важно: контекст сборки указан в docker-compose.yml как ./go_service/counter
+
+# WORKDIR /app
+# Повторно устанавливаем рабочую директорию (можно опустить, так как уже установлена)
+
+RUN ls -la /app
+# Выводим содержимое директории /app для отладки и проверки файлов
+
+# Собираем counter-service
+RUN go build -o counter-service .
+# Компилируем Go-приложение в бинарник с именем counter-service
+# Точка (.) означает текущую директорию с исходниками
+# Документация: https://golang.org/cmd/go/#hdr-Compile_packages_and_dependencies
+
+# Финальный образ
+FROM alpine:latest
+# Используем легковесный образ Alpine для финального контейнера
+# Документация: https://hub.docker.com/_/alpine
+
+WORKDIR /app
+# Устанавливаем рабочую директорию в финальном образе
+
+RUN apk add --no-cache libc6-compat
+# Устанавливаем пакет libc6-compat для совместимости с glibc
+# Необходим для работы некоторых Go-бинарников на Alpine
+# Документация: https://pkgs.alpinelinux.org/package/edge/community/x86/libc6-compat
+
+# Добавляем пользователя для безопасности
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Создаем группу и пользователя appuser для запуска приложения с пониженными правами
+# Рекомендуется не запускать приложения от root
+# Документация: https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
+
+COPY --from=builder /app/counter-service .
+# Копируем скомпилированный бинарник из стадии builder в финальный образ
+
+EXPOSE 8081
+# Открываем порт 8081 для доступа к сервису
+# Порт соответствует порту, на котором слушает counter-service (см. go_service/counter/main.go)
+
+USER appuser
+# Переключаемся на пользователя appuser для запуска приложения
+
+CMD ["./counter-service"]
+# Команда запуска контейнера: запуск бинарника counter-service
+# Документация: https://docs.docker.com/engine/reference/builder/#cmd
